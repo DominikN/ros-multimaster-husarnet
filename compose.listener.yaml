@@ -3,18 +3,56 @@
 
 services:
 
-  listener:
-    build: .
+  master-sync-listener:
+    build:
+      context: .
+      dockerfile: Dockerfile.multimaster
+    depends_on: 
+      husarnet-listener: { condition: service_healthy }
     network_mode: service:husarnet-listener
     tty: true
     environment:
       - ROS_IPV6=on
-      - ROS_MASTER_URI=http://talker-host:11311
+    command: rosrun fkie_master_sync master_sync _sync_hosts:=[listener-host,talker-host]
+
+  master-discovery-listener:
+    build:
+      context: .
+      dockerfile: Dockerfile.multimaster
+    depends_on: 
+      husarnet-listener: { condition: service_healthy }
+    network_mode: service:husarnet-listener
+    tty: true
+    environment:
+      - ROS_IPV6=on
+    command: rosrun fkie_master_discovery master_discovery _check_host:=False
+
+  ros-master-listener:
+    image: ros:noetic-ros-core
+    depends_on: 
+      husarnet-listener: { condition: service_healthy }
+    network_mode: service:husarnet-listener
+    tty: true
+    environment:
+      - ROS_IPV6=on
+    command: stdbuf -o L roscore
+
+  listener:
+    build:
+      context: .
+      dockerfile: Dockerfile.chatter
+    depends_on: 
+      husarnet-listener: { condition: service_healthy }
+    network_mode: service:husarnet-listener
+    tty: true
+    environment:
+      - ROS_IPV6=on
+      - ROS_MASTER_URI=http://listener-host:11311
       - ROS_HOSTNAME=listener-host
     command: rosrun roscpp_tutorials listener
 
   husarnet-listener:
-    image: husarnet/husarnet
+    image: husarnet/husarnet-nightly:2022.09.29.3
     volumes:
       - /var/lib/husarnet
     sysctls:
@@ -25,4 +63,6 @@ services:
       - /dev/net/tun
     environment:
       - HOSTNAME=listener-host
-      - JOINCODE=${HUSARNET_JOINCODE}
+      - JOINCODE
+      - WAIT_HOSTNAMES=talker-host,listener-host
+      # - HUSARNET_DEBUG=1

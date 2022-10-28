@@ -3,16 +3,46 @@
 
 services:
 
-  ros-master:
+  master-sync-talker:
+    build:
+      context: .
+      dockerfile: Dockerfile.multimaster
+    depends_on: 
+      husarnet-talker: { condition: service_healthy }
+    network_mode: service:husarnet-talker
+    tty: true
+    environment:
+      - ROS_IPV6=on
+    command: rosrun fkie_master_sync master_sync _sync_hosts:=[listener-host,talker-host]
+
+  master-discovery-talker:
+    build:
+      context: .
+      dockerfile: Dockerfile.multimaster
+    depends_on: 
+      husarnet-talker: { condition: service_healthy }
+    network_mode: service:husarnet-talker
+    tty: true
+    environment:
+      - ROS_IPV6=on
+    command: rosrun fkie_master_discovery master_discovery _check_host:=False
+
+  ros-master-talker:
     image: ros:noetic-ros-core
+    depends_on: 
+      husarnet-talker: { condition: service_healthy }
     network_mode: service:husarnet-talker
     tty: true
     environment:
       - ROS_IPV6=on
     command: stdbuf -o L roscore
 
-  talker1:
-    build: .
+  talker:
+    build:
+      context: .
+      dockerfile: Dockerfile.chatter
+    depends_on: 
+      husarnet-talker: { condition: service_healthy }
     network_mode: service:husarnet-talker
     tty: true
     environment:
@@ -21,18 +51,8 @@ services:
       - ROS_HOSTNAME=talker-host
     command: rosrun roscpp_tutorials talker
 
-  talker2:
-    build: .
-    network_mode: service:husarnet-talker
-    tty: true
-    environment:
-      - ROS_IPV6=on
-      - ROS_MASTER_URI=http://talker-host:11311
-      - ROS_HOSTNAME=talker-host
-    command: bash -c "sleep 10 && rosrun roscpp_tutorials talker __name:=talker2"
-
   husarnet-talker:
-    image: husarnet/husarnet
+    image: husarnet/husarnet-nightly:2022.09.29.3
     volumes:
       - /var/lib/husarnet
     sysctls:
@@ -43,4 +63,6 @@ services:
       - /dev/net/tun
     environment:
       - HOSTNAME=talker-host
-      - JOINCODE=${HUSARNET_JOINCODE}
+      - JOINCODE
+      - WAIT_HOSTNAMES=talker-host,listener-host
+      # - HUSARNET_DEBUG=1

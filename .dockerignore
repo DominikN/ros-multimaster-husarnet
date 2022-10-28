@@ -1,6 +1,6 @@
 .env.template
 .env
 compose*
-Dockerfile
+Dockerfile.*
 LICENSE
 README.md

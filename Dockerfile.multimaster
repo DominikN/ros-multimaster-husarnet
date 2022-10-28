@@ -1,0 +1,35 @@
+
+FROM ros:noetic-ros-base
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+SHELL ["/bin/bash", "-c"]
+
+WORKDIR /ros_ws
+
+RUN apt update && apt install -y \
+        avahi-daemon \
+        git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+    
+RUN apt update && \
+    mkdir -p src && cd src && \
+    git clone https://github.com/fkie/multimaster_fkie multimaster && \
+    source /opt/ros/$ROS_DISTRO/setup.bash && \
+    rosdep update && \
+    rosdep install -i -y --as-root pip:false --reinstall --from-paths multimaster && \
+    cd .. && \
+    catkin_make && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY ros_entrypoint.sh /
+
+RUN echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> ~/.bashrc && \
+    echo "source /ros_ws/devel/setup.bash" >> ~/.bashrc
+
+
+# RUN apt-get update && apt install -y \
+#         ros-noetic-ros-tutorials && \
+#     rm -rf /var/lib/apt/lists/*
